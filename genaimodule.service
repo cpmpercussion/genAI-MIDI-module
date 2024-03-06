@@ -1,0 +1,14 @@
+[Unit]
+Description=GenAI MIDI Module Startup Script
+After=multi-user.target
+
+[Service]
+ExecStart=/bin/bash /home/pi/genai-midi-module/start.sh
+WorkingDirectory=/home/pi/genai-midi-module
+StandardOutput=inherit
+StandardError=inherit
+Restart=always
+User=pi
+
+[Install]
+WantedBy=multi-user.target

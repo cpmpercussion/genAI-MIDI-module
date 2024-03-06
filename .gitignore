@@ -1,0 +1,9 @@
+*.pyc
+.ipynb_checkpoints
+
+logs
+datasets
+models
+
+*.hdf5
+*.no
