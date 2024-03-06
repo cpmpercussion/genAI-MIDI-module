@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 cd /home/pi/genai-midi-module
 sudo cp /home/pi/genai-midi-module/genaimodule.service /etc/systemd/system/genaimodule.service
 sudo chmod 644 /etc/systemd/system/genaimodule.service
