@@ -1,4 +1,7 @@
 #!/bin/sh
+
+# This script installs the Python and apt packages needed for the genAI program.
+
 # Setup Tensorflow
 sudo apt update && sudo apt upgrade -y && \
 sudo apt install -y \

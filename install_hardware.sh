@@ -1,6 +1,8 @@
 #!/bin/sh
 
-## This script sets up the raspberry pi hardware 
+## This script sets up the raspberry pi to:
+# - support ethernet over USB with the interface usb0
+# - support UART over GPIO for MIDI in/out
 
 # Setup Ethernet gadget according to: https://forums.raspberrypi.com/viewtopic.php?p=2184846
 cat >/etc/network/interfaces.d/g_ether <<'EOF'
@@ -34,5 +36,3 @@ sudo systemctl disable hciuart
 
 # Reboot!
 # sudo reboot
-
-# Setup the Service:
