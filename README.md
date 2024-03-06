@@ -12,7 +12,14 @@ This program doesn't make any sounds, it just sends generated MIDI messages over
 
 2. Make sure that SSH is enabled and that you know the username and password. The username should be `pi`.
 
-3. SSH into the Pi and clone this repository.
+3. SSH into the Pi and run:
+
+```
+sudo apt update && sudo apt upgrade
+sudo apt install git
+```
+
+4. clone this repository: `git clone https://github.com/cpmpercussion/genAI-MIDI-module.git`
 
 ## Install
 
