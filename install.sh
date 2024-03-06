@@ -1,6 +1,5 @@
 #!/bin/sh
 # Setup Tensorflow
-sudo apt update && sudo apt -y full-upgrade
 sudo apt update && sudo apt upgrade -y && \
 sudo apt install -y \
     libhdf5-dev \
