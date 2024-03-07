@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "genai-midi-module"
+version = "0.1.0"
+description = "A generative AI MIDI module for creating intelligent musical instruments with Raspberry Pi"
+authors = ["Charles Martin <cpm@charlesmartin.com.au>"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "genai_midi_module"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+tensorflow = "2.15"
+tensorflow-probability = "0.23.0"
+python-osc = "^1.8.3"
+keras-mdn-layer = "^0.3.0"
+pyserial = "^3.5"
+websockets = "^12.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

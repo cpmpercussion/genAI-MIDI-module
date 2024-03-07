@@ -31,5 +31,19 @@ sudo apt install git
 
 ## Install
 
+There are three install scripts. You'll need to have an internet connection to get these to work:
+
+- `install_hardware.sh`: sets up ethernet-over-USB and enables the UART for MIDI in/out.
+- `install_software.sh`: installs Python and other packages needed for the genAI program.
+- `install_start_on_boot.sh`: installs a systemd service that runs the genAI program when the Raspberry Pi boots
+
+Once you have run these scripts (and they were successful), you can test the genAI MIDI module works by running: `start.sh`.
+
+N.B.: The `genai_midi_module.py` program takes a long time to start (~90s).
+
+You can stop the `genai_midi_module.py` program by typing Ctrl-C.
+
 ## Using
+
+
 
