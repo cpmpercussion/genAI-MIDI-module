@@ -7,7 +7,13 @@ import serial
 import argparse
 from threading import Thread
 from websockets.sync.client import connect # websockets connection
-ser = serial.Serial('/dev/ttyAMA0', baudrate=31250)
+
+try:
+    print("Opening Serial Port for MIDI in/out.")
+    ser = serial.Serial('/dev/ttyAMA0', baudrate=31250)
+except:
+    ser = None
+    print("Could not open serial port, might be in development mode.")
 
 WEBSOCKET_URL = "ws://192.168.0.103:3000" # the URL for the websocket client to send to.
 
@@ -157,20 +163,26 @@ last_note_played = 0
 def send_note_on(channel, pitch, velocity):
     global websocket
     """Send a note on message to the serial output"""
-    ser.write(bytearray([(9 << 4) | channel, pitch, velocity]))
+    try:
+        ser.write(bytearray([(9 << 4) | channel, pitch, velocity]))
+    except: 
+        pass
     try:
         websocket.send(f"/channel/{channel}/noteon/{pitch}/{velocity}") # websocket message
     except:
-        return
+        pass
 
 def send_note_off(channel, pitch, velocity):
     global websocket
     """Send a note off message to the serial output"""
-    ser.write(bytearray([(8 << 4) | channel, pitch, velocity])) # stop last note
+    try:
+        ser.write(bytearray([(8 << 4) | channel, pitch, velocity])) # stop last note
+    except:
+        pass
     try: 
         websocket.send(f"/channel/{channel}/noteoff/{pitch}/{velocity}") # websocket message
     except:
-        return
+        pass
 
 # /channel/1/noteon/54 + ip address + timestamp
 # /channel/1/noteoff/54 + ip address + timestamp
