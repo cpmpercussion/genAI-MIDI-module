@@ -1,0 +1,31 @@
+# The configuration file for the GenAI-MIDI-module
+
+title = "Default"
+
+log = true
+verbose = true
+
+# Metadata about this configuration
+[owner]
+name = ""
+
+# Interaction Configuration
+[interaction]
+mode = "callresponse" # Can be: "callresponse", "polyphony", "battle", "useronly"
+threshold = 2.0 # number of seconds before switching in call-response mode
+
+# Model configuration
+[model]
+dimension = 2
+file = "models/musicMDRNN-dim2-layers2-units32-mixtures5-scale10-human.h5"
+size = "xs" # Can be one of: xs, s, m, l, xl
+sigmatemp = 0.01
+pitemp = 1
+
+
+# Websocket section enables websocket sending, remove to disable websocket sending
+[websocket]
+client_ip = "192.168.0.103" # The address to send messages to
+client_port = "3000" # The port to send messages to
+server_ip = "localhost" # The address of this server
+server_port = "5001" # The port this server should listen on.

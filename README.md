@@ -45,5 +45,9 @@ You can stop the `genai_midi_module.py` program by typing Ctrl-C.
 
 ## Using
 
+- Config is in `config.toml`
+
+- `start.sh` starts the main python file
+
 
 
