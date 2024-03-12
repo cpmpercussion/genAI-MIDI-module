@@ -146,7 +146,7 @@ def make_prediction(sess, compute_graph):
         rnn_prediction_queue.task_done()
 
 
-last_note_played = 0
+last_note_played = []
 
 ## The MIDI and websocket sending routines
 
@@ -183,15 +183,19 @@ def send_sound_command(command_args):
     """Send a sound command back to the interface/synth"""
     global last_note_played
     assert len(command_args)+1 == dimension, "Dimension not same as prediction size." # Todo more useful error.
+    assert dimension <= 17, "Dimension > 17 is not compatible with MIDI pitch sending."
+    if len(last_note_played) < (dimension-1):
+        # prime the last_note_played list.
+        last_note_played = [0] * (dimension-1)
     # TODO put in serial sending code here
     # should just send "note on" based on first argument.
-    channel = 0
+    new_notes = list(map(int, (np.ceil(command_args * 127))))
     ## order is (cmd/channel), pitch, vel
-    send_note_off(channel, last_note_played, 0) # stop last note
-    new_note = int(np.ceil(command_args[0] * 127)) # calc new note
-    send_note_on(channel, new_note, 127) # play new note
-    print(f'sent MIDI note: {new_note}')
-    last_note_played = new_note # remember last note played
+    for channel in range(dimension-1):
+        send_note_off(channel, last_note_played[channel], 0) # stop last note
+        send_note_on(channel, new_notes[channel], 127) # play new note
+    print(f'sent MIDI note: {new_notes}')
+    last_note_played = new_notes # remember last note played
 
 
 def playback_rnn_loop():
