@@ -16,9 +16,9 @@ threshold = 2.0 # number of seconds before switching in call-response mode
 
 # Model configuration
 [model]
-dimension = 2
-file = "models/musicMDRNN-dim2-layers2-units32-mixtures5-scale10-human.h5"
-size = "xs" # Can be one of: xs, s, m, l, xl
+dimension = 9
+file = "models/musicMDRNN-dim9-layers2-units64-mixtures5-scale10.h5"
+size = "s" # Can be one of: xs, s, m, l, xl
 sigmatemp = 0.01
 pitemp = 1
 
@@ -29,3 +29,5 @@ client_ip = "192.168.0.103" # The address to send messages to
 client_port = "3000" # The port to send messages to
 server_ip = "localhost" # The address of this server
 server_port = "5001" # The port this server should listen on.
+
+# "models/musicMDRNN-dim2-layers2-units32-mixtures5-scale10-human.h5"
