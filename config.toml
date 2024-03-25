@@ -23,7 +23,7 @@ sigmatemp = 0.01
 pitemp = 1
 
 # MIDI Mapping
-[midi_mapping]
+[midi]
 input = [
   ["note_on", 1],
   ["control_change", 1, 1],

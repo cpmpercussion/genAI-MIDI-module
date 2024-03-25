@@ -225,6 +225,45 @@ def send_sound_command(command_args):
     last_note_played = new_notes # remember last note played
 
 
+def send_sound_command_midi(command_args):
+    """Sends sound commands via MIDI"""
+    outconf = config["midi"]["output"]
+    values = list(map(int, (np.ceil(command_args * 127))))
+
+    for i in range(dimension-1):
+        if outconf[i][0] == "note_on":
+            send_midi_note_on(outconf[i][1], values[i], 127)
+        if outconf[i][0] == "control_change":
+            send_control_change(outconf[i][1], outconf[i][2], values[i])
+            
+
+last_midi_notes = {} # dict to store last played notes via midi
+
+def send_midi_note_on(channel, pitch, velocity):
+    """Send a MIDI note on (and implicitly handle note_off)"""
+    global last_midi_notes
+    # stop the previous note
+    try:
+        midi_msg = mido.Message('note_off', channel=channel, note=last_midi_notes[channel], velocity=0)
+        midi_out_port.send(midi_msg)
+        # do this by whatever other channels necessary
+    except KeyError:
+        pass
+
+    # play the present note
+    midi_msg = mido.Message('note_on', channel=channel, note=pitch, velocity=velocity)
+    midi_out_port.send(midi_msg)
+    last_midi_notes[channel] = pitch
+    # do this by whatever other channels necessary
+
+
+def send_control_change(channel, control, value):
+    """Send a MIDI control change message"""
+    midi_msg = mido.Message('control_change', channel=channel, control=control, value=value)
+    midi_out_port.send(midi_msg)
+
+
+
 def playback_rnn_loop():
     # Plays back RNN notes from its buffer queue.
     while True:
@@ -237,7 +276,7 @@ def playback_rnn_loop():
         # put last played in queue for prediction.
         rnn_prediction_queue.put_nowait(np.concatenate([np.array([dt]), x_pred]))
         if rnn_to_sound:
-            send_sound_command(x_pred)
+            send_sound_command_midi(x_pred)
             # print("RNN Played:", x_pred, "at", dt)
             logging.info("{1},rnn,{0}".format(','.join(map(str, x_pred)),
                          datetime.datetime.now().isoformat()))
@@ -382,7 +421,7 @@ try:
     while True:
         make_prediction(sess, compute_graph)
         if config["interaction"]["mode"] == "callresponse":
-            handle_midi_input() # handles incoming midi queue
+            # handle_midi_input() # handles incoming midi queue
             monitor_user_action()
 except KeyboardInterrupt:
     print("\nCtrl-C received... exiting.")
