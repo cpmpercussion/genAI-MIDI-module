@@ -22,6 +22,28 @@ size = "s" # Can be one of: xs, s, m, l, xl
 sigmatemp = 0.01
 pitemp = 1
 
+# MIDI Mapping
+[midi_mapping]
+input = [
+  ["note_on", 1],
+  ["control_change", 1, 1],
+  ["control_change", 1, 2],
+  ["control_change", 1, 3],
+  ["control_change", 1, 4],
+  ["control_change", 1, 5],
+  ["control_change", 1, 6],
+  ["control_change", 1, 7],
+  ]
+output = [
+  ["note_on", 1],
+  ["control_change", 1, 1],
+  ["control_change", 1, 2],
+  ["control_change", 1, 3],
+  ["control_change", 1, 4],
+  ["control_change", 1, 5],
+  ["control_change", 1, 6],
+  ["control_change", 1, 7],
+]
 
 # Websocket section enables websocket sending, remove to disable websocket sending
 [websocket]

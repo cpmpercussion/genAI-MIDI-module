@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import logging
 import time
 import datetime
@@ -242,10 +244,49 @@ def playback_rnn_loop():
         rnn_output_buffer.task_done()
 
 
+def construct_input_list(index, value):
+    """constructs a dense input list from a sparse format (e.g., when receiving MIDI)
+    """
+    global last_user_interaction_time
+    global last_user_interaction_data
+    # set up dense interaction list
+    int_input = last_user_interaction_data[1:]
+    int_input[index] = value
+    # log
+    if args.verbose:
+        print("User:", time.time(), ','.join(map(str, int_input)))
+    logging.info("{1},interface,{0}".format(','.join(map(str, int_input)),
+                 datetime.datetime.now().isoformat()))
+    # put it in the queue
+    dt = time.time() - last_user_interaction_time
+    last_user_interaction_time = time.time()
+    last_user_interaction_data = np.array([dt, *int_input])
+    assert len(last_user_interaction_data) == dimension, "Input is incorrect dimension, set dimension to %r" % len(last_user_interaction_data)
+    # These values are accessed by the RNN in the interaction loop function.
+    interface_input_queue.put_nowait(last_user_interaction_data)
+
+
 def handle_midi_input():
+    """Handle MIDI input messages that might come from mido"""
+    # TODO add some kind of error checking on reading the midi port here.
     for message in midi_in_port.iter_pending():
-        # handle
-        # check type? Need some general way to line up types notes vs CC etc.
+        # input_mapping = config["midi"]["input"]
+        if message.type == "note_on":
+            try:
+                index = config["midi"]["input"].index(["note_on", message.channel])
+            except ValueError:
+                return
+            value = message.note / 127.0
+            construct_input_list(index,value)
+            return
+        if message.type == "control_change":
+            try:
+                index = config["midi"]["input"].index(["control_change", message.channel, message.control])
+            except ValueError:
+                return
+            value = message.value / 127.0
+            construct_input_list(index,value)
+            return
 
 
 def monitor_user_action():
