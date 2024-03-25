@@ -7,7 +7,22 @@ import serial
 import argparse
 import tomllib
 from threading import Thread
+import mido
 from websockets.sync.client import connect # websockets connection
+
+print("Listing MIDI Inputs and Outputs")
+print("Input:", mido.get_input_names())
+print("Output:", mido.get_output_names())
+print("By default, mido is going to open the first input and first output ports")
+
+try:
+    print("Opening MIDI port for input/output.")
+    midi_in_port = mido.open_input()
+    midi_out_port = mido.open_output()
+except: 
+    midi_in_port = None
+    midi_out_port = None
+    print("Could not open MIDI input or output (or just one of those).")
 
 try:
     print("Opening Serial Port for MIDI in/out.")
@@ -162,6 +177,11 @@ def send_note_on(channel, pitch, velocity):
         websocket.send(f"/channel/{channel}/noteon/{pitch}/{velocity}") # websocket message
     except:
         pass
+    try:
+        midi_msg = mido.Message('note_on', channel=channel, note=pitch, velocity=velocity)
+        midi_out_port.send(midi_msg)
+    except:
+        pass
 
 def send_note_off(channel, pitch, velocity):
     global websocket
@@ -172,6 +192,11 @@ def send_note_off(channel, pitch, velocity):
         pass
     try: 
         websocket.send(f"/channel/{channel}/noteoff/{pitch}/{velocity}") # websocket message
+    except:
+        pass
+    try:
+        midi_msg = mido.Message('note_off', channel=channel, note=pitch, velocity=velocity)
+        midi_out_port.send(midi_msg)
     except:
         pass
 
@@ -215,6 +240,12 @@ def playback_rnn_loop():
             logging.info("{1},rnn,{0}".format(','.join(map(str, x_pred)),
                          datetime.datetime.now().isoformat()))
         rnn_output_buffer.task_done()
+
+
+def handle_midi_input():
+    for message in midi_in_port.iter_pending():
+        # handle
+        # check type? Need some general way to line up types notes vs CC etc.
 
 
 def monitor_user_action():
@@ -310,6 +341,7 @@ try:
     while True:
         make_prediction(sess, compute_graph)
         if config["interaction"]["mode"] == "callresponse":
+            handle_midi_input() # handles incoming midi queue
             monitor_user_action()
 except KeyboardInterrupt:
     print("\nCtrl-C received... exiting.")
