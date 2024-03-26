@@ -298,6 +298,7 @@ def playback_rnn_loop():
         dt = item[0]
         x_pred = np.minimum(np.maximum(item[1:], 0), 1)
         dt = max(dt, 0.001)  # stop accidental minus and zero dt.
+        dt = dt * config["model"]["timescale"] # timescale modification!
         time.sleep(dt)  # wait until time to play the sound
         # put last played in queue for prediction.
         rnn_prediction_queue.put_nowait(np.concatenate([np.array([dt]), x_pred]))
@@ -463,7 +464,11 @@ except KeyboardInterrupt:
     print("\nCtrl-C received... exiting.")
     thread_running = False
     rnn_thread.join(timeout=0.1)
-    ser.write(bytearray([(8 << 4) | 0, last_note_played, 0])) # stop last note on channel 0 in case.
+    try: 
+        ser.write(bytearray([(8 << 4) | 0, last_note_played, 0])) # stop last note on channel 0 in case.
+    except:
+        pass
+    send_midi_note_offs() # stop all midi notes.
     try:
         websocket.close()
     except:
