@@ -1,6 +1,7 @@
 #!/bin/sh
 
-# This script installs the Python and apt packages needed for the genAI program.
+# This script installs the Python and apt packages needed for the genAI program on a Raspberry Pi.
+# For installing on Raspberry Pi OS -- use this, for other systems, use `poetry install`
 
 # Setup Tensorflow
 sudo apt update && sudo apt upgrade -y && \
