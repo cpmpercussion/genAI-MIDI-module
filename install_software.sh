@@ -40,4 +40,7 @@ pip install -U tensorflow-probability==0.23.0 --break-system-packages && \
 pip install -U python-osc --break-system-packages && \
 pip install -U keras-mdn-layer --break-system-packages && \
 pip install -U pyserial --break-system-packages && \
-pip install -U websockets --break-system-packages
+pip install -U websockets --break-system-packages && \
+pip install -U mido --break-system-packages && \
+pip install -U python-rtmidi --break-system-packages && \
+pip install -U click --break-system-packages
