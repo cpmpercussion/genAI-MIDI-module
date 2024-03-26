@@ -12,15 +12,23 @@ from threading import Thread
 import mido
 from websockets.sync.client import connect # websockets connection
 
+print("Opening configuration.")
+with open("config.toml", "rb") as f:
+    config = tomllib.load(f)
+
 print("Listing MIDI Inputs and Outputs")
 print("Input:", mido.get_input_names())
 print("Output:", mido.get_output_names())
 print("By default, mido is going to open the first input and first output ports")
 
+# print("Opening MIDI port for input/output.")
+# midi_in_port = mido.open_input(config["midi"]["in_device"])
+# midi_out_port = mido.open_output(config["midi"]["out_device"])
+
 try:
     print("Opening MIDI port for input/output.")
-    midi_in_port = mido.open_input()
-    midi_out_port = mido.open_output()
+    midi_in_port = mido.open_input(config["midi"]["in_device"])
+    midi_out_port = mido.open_output(config["midi"]["out_device"])
 except: 
     midi_in_port = None
     midi_out_port = None
@@ -34,9 +42,7 @@ except:
     print("Could not open serial port, might be in development mode.")
 
 
-print("Opening configuration.")
-with open("config.toml", "rb") as f:
-    config = tomllib.load(f)
+
 
 print("Configuration: ", config)
 
@@ -227,14 +233,17 @@ def send_sound_command(command_args):
 
 def send_sound_command_midi(command_args):
     """Sends sound commands via MIDI"""
+    assert len(command_args)+1 == dimension, "Dimension not same as prediction size." # Todo more useful error.
     outconf = config["midi"]["output"]
     values = list(map(int, (np.ceil(command_args * 127))))
+    print(f'sending MIDI note: {values}')
 
     for i in range(dimension-1):
         if outconf[i][0] == "note_on":
-            send_midi_note_on(outconf[i][1], values[i], 127)
+            send_midi_note_on(outconf[i][1]-1, values[i], 127) # note decremented channel (0-15)
         if outconf[i][0] == "control_change":
-            send_control_change(outconf[i][1], outconf[i][2], values[i])
+            send_control_change(outconf[i][1]-1, outconf[i][2], values[i]) # note decrement channel (0-15)
+    # TODO: is it a good idea to have all this indexing? easy to screw up.
             
 
 last_midi_notes = {} # dict to store last played notes via midi
@@ -276,6 +285,7 @@ def playback_rnn_loop():
         # put last played in queue for prediction.
         rnn_prediction_queue.put_nowait(np.concatenate([np.array([dt]), x_pred]))
         if rnn_to_sound:
+            # send_sound_command(x_pred)
             send_sound_command_midi(x_pred)
             # print("RNN Played:", x_pred, "at", dt)
             logging.info("{1},rnn,{0}".format(','.join(map(str, x_pred)),
