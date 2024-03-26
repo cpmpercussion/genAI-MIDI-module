@@ -212,23 +212,23 @@ def send_note_off(channel, pitch, velocity):
 # /channel/1/noteoff/54 + ip address + timestamp
 
 
-def send_sound_command(command_args):
-    """Send a sound command back to the interface/synth"""
-    global last_note_played
-    assert len(command_args)+1 == dimension, "Dimension not same as prediction size." # Todo more useful error.
-    assert dimension <= 17, "Dimension > 17 is not compatible with MIDI pitch sending."
-    if len(last_note_played) < (dimension-1):
-        # prime the last_note_played list.
-        last_note_played = [0] * (dimension-1)
-    # TODO put in serial sending code here
-    # should just send "note on" based on first argument.
-    new_notes = list(map(int, (np.ceil(command_args * 127))))
-    ## order is (cmd/channel), pitch, vel
-    for channel in range(dimension-1):
-        send_note_off(channel, last_note_played[channel], 0) # stop last note
-        send_note_on(channel, new_notes[channel], 127) # play new note
-    print(f'sent MIDI note: {new_notes}')
-    last_note_played = new_notes # remember last note played
+# def send_sound_command(command_args):
+#     """Send a sound command back to the interface/synth"""
+#     global last_note_played
+#     assert len(command_args)+1 == dimension, "Dimension not same as prediction size." # Todo more useful error.
+#     assert dimension <= 17, "Dimension > 17 is not compatible with MIDI pitch sending."
+#     if len(last_note_played) < (dimension-1):
+#         # prime the last_note_played list.
+#         last_note_played = [0] * (dimension-1)
+#     # TODO put in serial sending code here
+#     # should just send "note on" based on first argument.
+#     new_notes = list(map(int, (np.ceil(command_args * 127))))
+#     ## order is (cmd/channel), pitch, vel
+#     for channel in range(dimension-1):
+#         send_note_off(channel, last_note_played[channel], 0) # stop last note
+#         send_note_on(channel, new_notes[channel], 127) # play new note
+#     print(f'sent MIDI note: {new_notes}')
+#     last_note_played = new_notes # remember last note played
 
 
 def send_sound_command_midi(command_args):
@@ -264,13 +264,30 @@ def send_midi_note_on(channel, pitch, velocity):
     midi_out_port.send(midi_msg)
     last_midi_notes[channel] = pitch
     # do this by whatever other channels necessary
+    # TODO add cheap serial MIDI
+    # TODO add websockets
+    # TODO add local OSC?
+
+def send_midi_note_offs():
+    global last_midi_notes
+    outconf = config["midi"]["output"]
+    out_channels = [x[1] for x in outconf if x[0] == "note_on"]
+    print("Sending note offs for channels:", out_channels)
+    for i in out_channels:
+        try:
+            midi_msg = mido.Message('note_off', channel=i-1, note=last_midi_notes[i-1], velocity=0)
+            midi_out_port.send(midi_msg)
+        except KeyError:
+            pass
 
 
 def send_control_change(channel, control, value):
     """Send a MIDI control change message"""
     midi_msg = mido.Message('control_change', channel=channel, control=control, value=value)
     midi_out_port.send(midi_msg)
-
+    # TODO add cheap serial MIDI
+    # TODO add websockets
+    # TODO add local OSC?
 
 
 def playback_rnn_loop():
@@ -302,6 +319,7 @@ def construct_input_list(index, value):
     int_input = last_user_interaction_data[1:]
     int_input[index] = value
     # log
+    print("INPUT:", int_input)
     if args.verbose:
         print("User:", time.time(), ','.join(map(str, int_input)))
     logging.info("{1},interface,{0}".format(','.join(map(str, int_input)),
@@ -320,20 +338,24 @@ def handle_midi_input():
     # TODO add some kind of error checking on reading the midi port here.
     for message in midi_in_port.iter_pending():
         # input_mapping = config["midi"]["input"]
+        # print("MIDI-in:", message)
+
         if message.type == "note_on":
             try:
-                index = config["midi"]["input"].index(["note_on", message.channel])
+                index = config["midi"]["input"].index(["note_on", message.channel+1])
             except ValueError:
                 return
             value = message.note / 127.0
+            # print("Sending note to inputs:", index, value)
             construct_input_list(index,value)
             return
         if message.type == "control_change":
             try:
-                index = config["midi"]["input"].index(["control_change", message.channel, message.control])
+                index = config["midi"]["input"].index(["control_change", message.channel+1, message.control])
             except ValueError:
                 return
             value = message.value / 127.0
+            # print("Sending control to inputs:", index, value)
             construct_input_list(index,value)
             return
 
@@ -372,6 +394,10 @@ def monitor_user_action():
                 # Make sure there's no actions waiting to be synthesised.
                 rnn_output_buffer.get()
                 rnn_output_buffer.task_done()
+            # close sound control over MIDI
+            send_midi_note_offs()
+
+
 
 
 # Logging
@@ -431,7 +457,7 @@ try:
     while True:
         make_prediction(sess, compute_graph)
         if config["interaction"]["mode"] == "callresponse":
-            # handle_midi_input() # handles incoming midi queue
+            handle_midi_input() # handles incoming midi queue
             monitor_user_action()
 except KeyboardInterrupt:
     print("\nCtrl-C received... exiting.")
