@@ -24,6 +24,8 @@ pitemp = 1
 
 # MIDI Mapping
 [midi]
+in_device = "Arturia MicroFreak"
+out_device = "Arturia MicroFreak"
 input = [
   ["note_on", 1],
   ["control_change", 1, 1],
