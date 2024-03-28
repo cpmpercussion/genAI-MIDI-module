@@ -6,7 +6,6 @@ import datetime
 import numpy as np
 import queue
 import serial
-import argparse
 import tomllib
 from threading import Thread
 import mido
@@ -69,10 +68,11 @@ if config["websocket"]:
 
 # Input and output to serial are bytes (0-255)
 # Output to Pd is a float (0-1)
-parser = argparse.ArgumentParser(description='Predictive Musical Interaction MDRNN Interface.')
-parser.add_argument('-l', '--log', dest='logging', action="store_true", help='Save input and RNN data to a log file.')
-parser.add_argument('-v', '--verbose', dest='verbose', action="store_true", help='Verbose mode, print prediction results.')
-args = parser.parse_args()
+
+
+VERBOSE = config["verbose"]
+LOG_ENABLED = config["log"]
+
 
 # Import Keras and tensorflow, doing this later to make CLI more responsive.
 click.secho("Importing MDRNN.", fg='yellow')
@@ -172,8 +172,6 @@ def make_prediction(sess, compute_graph):
         tf.keras.backend.set_session(sess)
         with compute_graph.as_default():
             rnn_output = request_rnn_prediction(item)
-        if args.verbose:
-            print("User->RNN prediction:", rnn_output)
         if rnn_to_sound:
             rnn_output_buffer.put_nowait(rnn_output)
         interface_input_queue.task_done()
@@ -184,8 +182,6 @@ def make_prediction(sess, compute_graph):
         tf.keras.backend.set_session(sess)
         with compute_graph.as_default():
             rnn_output = request_rnn_prediction(item)
-        if args.verbose:
-            print("RNN->RNN prediction out:", rnn_output)
         rnn_output_buffer.put_nowait(rnn_output)  # put it in the playback queue.
         rnn_prediction_queue.task_done()
 
@@ -224,7 +220,8 @@ def send_sound_command_midi(command_args):
     assert len(command_args)+1 == dimension, "Dimension not same as prediction size." # Todo more useful error.
     outconf = config["midi"]["output"]
     values = list(map(int, (np.ceil(command_args * 127))))
-    click.secho(f'out: {values}', fg='green')
+    if VERBOSE:
+        click.secho(f'out: {values}', fg='green')
 
     for i in range(dimension-1):
         if outconf[i][0] == "note_on":
@@ -318,8 +315,9 @@ def playback_rnn_loop():
         if rnn_to_sound:
             # send_sound_command(x_pred)
             send_sound_command_midi(x_pred)
-            logging.info("{1},rnn,{0}".format(','.join(map(str, x_pred)),
-                         datetime.datetime.now().isoformat()))
+            if config["log_predictions"]:
+                logging.info("{1},rnn,{0}".format(','.join(map(str, x_pred)),
+                            datetime.datetime.now().isoformat()))
         rnn_output_buffer.task_done()
 
 
@@ -333,7 +331,8 @@ def construct_input_list(index, value):
     int_input[index] = value
     # log
     values = list(map(int, (np.ceil(int_input * 127))))
-    click.secho(f"in: {values}", fg='yellow')
+    if VERBOSE:
+        click.secho(f"in: {values}", fg='yellow')
     logging.info("{1},interface,{0}".format(','.join(map(str, int_input)),
                  datetime.datetime.now().isoformat()))
     # put it in the queue
@@ -446,11 +445,11 @@ LOG_FILE = datetime.datetime.now().isoformat().replace(":", "-")[:19] + "-" + st
 LOG_FILE = "logs/" + LOG_FILE
 LOG_FORMAT = '%(message)s'
 
-if args.logging:
+if LOG_ENABLED:
     logging.basicConfig(filename=LOG_FILE,
                         level=logging.INFO,
                         format=LOG_FORMAT)
-    click.secho(f'Logging enabled: {LOG_FILE}', fg='yellow')
+    click.secho(f'Logging enabled: {LOG_FILE}', fg='green')
 # Details for OSC output
 INPUT_MESSAGE_ADDRESS = "/interface"
 OUTPUT_MESSAGE_ADDRESS = "/prediction"
