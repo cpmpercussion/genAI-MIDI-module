@@ -18,13 +18,29 @@ with open("config.toml", "rb") as f:
     config = tomllib.load(f)
 
 click.secho("Listing MIDI Inputs and Outputs", fg='yellow')
-click.secho(f"Input: {mido.get_input_names()}", bg = 'yellow')
-click.secho(f"Output: {mido.get_output_names()}", bg = 'yellow')
+click.secho(f"Input: {mido.get_input_names()}", fg = 'blue')
+click.secho(f"Output: {mido.get_output_names()}", fg = 'blue')
+
+
+def match_midi_port_to_list(port, port_list):
+    """Return the closest actual MIDI port name given a partial match and a list."""
+    if port in port_list:
+        return port
+    contains_list = [x for x in port_list if port in x]
+    if not contains_list:
+        return False
+    else:
+        return contains_list[0]
+
 
 try:
     click.secho("Opening MIDI port for input/output.", fg='yellow')
-    midi_in_port = mido.open_input(config["midi"]["in_device"])
-    midi_out_port = mido.open_output(config["midi"]["out_device"])
+    desired_input_port = match_midi_port_to_list(config["midi"]["in_device"], mido.get_input_names())
+    midi_in_port = mido.open_input(desired_input_port)
+    desired_output_port = match_midi_port_to_list(config["midi"]["out_device"], mido.get_output_names())
+    midi_out_port = mido.open_output(desired_output_port)
+    click.secho(f"MIDI: in port is: {midi_in_port.name}", fg='green')
+    click.secho(f"MIDI: out port is: {midi_out_port.name}", fg='green')
 except: 
     midi_in_port = None
     midi_out_port = None
