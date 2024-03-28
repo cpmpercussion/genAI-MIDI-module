@@ -32,19 +32,22 @@ def match_midi_port_to_list(port, port_list):
     else:
         return contains_list[0]
 
-
+click.secho("Opening MIDI port for input/output.", fg='yellow')
 try:
-    click.secho("Opening MIDI port for input/output.", fg='yellow')
     desired_input_port = match_midi_port_to_list(config["midi"]["in_device"], mido.get_input_names())
     midi_in_port = mido.open_input(desired_input_port)
-    desired_output_port = match_midi_port_to_list(config["midi"]["out_device"], mido.get_output_names())
-    midi_out_port = mido.open_output(desired_output_port)
     click.secho(f"MIDI: in port is: {midi_in_port.name}", fg='green')
-    click.secho(f"MIDI: out port is: {midi_out_port.name}", fg='green')
 except: 
     midi_in_port = None
+    click.secho("Could not open MIDI input.", fg='red')
+try:
+    desired_output_port = match_midi_port_to_list(config["midi"]["out_device"], mido.get_output_names())
+    midi_out_port = mido.open_output(desired_output_port)
+    click.secho(f"MIDI: out port is: {midi_out_port.name}", fg='green')
+except:
     midi_out_port = None
-    click.secho("Could not open MIDI input or output (or just one of those).", fg='red')
+    click.secho("Could not open MIDI output.", fg='red')
+
 
 try:
     click.secho("Opening Serial Port for MIDI in/out.", fg='yellow')
@@ -344,7 +347,8 @@ def construct_input_list(index, value):
 
 def handle_midi_input():
     """Handle MIDI input messages that might come from mido"""
-    # TODO add some kind of error checking on reading the midi port here.
+    if midi_in_port is None:
+        return # fail early if MIDI not open.
     for message in midi_in_port.iter_pending():
         if message.type == "note_on":
             try:
