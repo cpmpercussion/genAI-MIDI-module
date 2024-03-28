@@ -1,4 +1,2 @@
 #!/bin/sh
-python3 genai_midi_module.py \
---log \
---verbose
+python3 genai_midi_module.py
