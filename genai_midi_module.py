@@ -43,6 +43,7 @@ if config["websocket"]:
     client_url = f"ws://{config['websocket']['client_ip']}:{config['websocket']['client_port']}" # the URL for the websocket client to send to.
     try:
         websocket = connect(client_url)
+        click.secho(f"Success! WS Connected to {config['websocket']['client_ip']}", fg='green')
     except:
         click.secho("Could not connect to websocket.", fg='red')
         websocket = None
@@ -332,17 +333,18 @@ def handle_midi_input():
         if message.type == "note_on":
             try:
                 index = config["midi"]["input"].index(["note_on", message.channel+1])
+                value = message.note / 127.0
+                construct_input_list(index,value)
             except ValueError:
                 pass
-            value = message.note / 127.0
-            construct_input_list(index,value)
+
         if message.type == "control_change":
             try:
                 index = config["midi"]["input"].index(["control_change", message.channel+1, message.control])
+                value = message.value / 127.0
+                construct_input_list(index,value)
             except ValueError:
                 pass
-            value = message.value / 127.0
-            construct_input_list(index,value)
 
 
 def handle_websocket_input():
@@ -358,27 +360,25 @@ def handle_websocket_input():
             # note_on
             try:
                 index = config["midi"]["input"].index(["note_on", chan+1])
+                value = note / 127.0
+                construct_input_list(index,value)  
             except ValueError:
                 pass
-            value = note / 127.0
-            construct_input_list(index,value)            
+          
         # if m[2] == "noteoff":
         #     # note_off - do nothing
         if m[2] == "cc":
             # cc
             try:
                 index = config["midi"]["input"].index(["control_change", chan+1, note])
+                value = vel / 127.0
+                construct_input_list(index,value)
             except ValueError:
                 pass
-            value = vel / 127.0
-            construct_input_list(index,value)
-
         # global websocket
         # ws_msg = f"/channel/{message.channel}/noteon/{message.note}/{message.velocity}"
         # ws_msg = f"/channel/{message.channel}/noteoff/{message.note}/{message.velocity}"
         # ws_msg = f"/channel/{message.channel}/cc/{message.control}/{message.value}"
-
-
 
 
 def monitor_user_action():
@@ -466,11 +466,12 @@ rnn_thread = Thread(target=playback_rnn_loop, name="rnn_player_thread", daemon=T
 
 try:
     rnn_thread.start()
+    click.secho("RNN Thread Started", fg="green")
     while True:
         make_prediction(sess, compute_graph)
         if config["interaction"]["mode"] == "callresponse":
             handle_midi_input() # handles incoming midi queue
-            handle_websocket_input() # handles incoming websocket queue
+            # handle_websocket_input() # handles incoming websocket queue
             monitor_user_action()
 except KeyboardInterrupt:
     click.secho("\nCtrl-C received... exiting.", fg='red')
