@@ -45,6 +45,7 @@ if config["websocket"]:
         websocket = connect(client_url)
     except:
         click.secho("Could not connect to websocket.", fg='red')
+        websocket = None
 
 # Input and output to serial are bytes (0-255)
 # Output to Pd is a float (0-1)
@@ -332,18 +333,52 @@ def handle_midi_input():
             try:
                 index = config["midi"]["input"].index(["note_on", message.channel+1])
             except ValueError:
-                return
+                pass
             value = message.note / 127.0
             construct_input_list(index,value)
-            return
         if message.type == "control_change":
             try:
                 index = config["midi"]["input"].index(["control_change", message.channel+1, message.control])
             except ValueError:
-                return
+                pass
             value = message.value / 127.0
             construct_input_list(index,value)
-            return
+
+
+def handle_websocket_input():
+    """Handle websocket input messages that might arrive"""
+    if websocket is None:
+        return
+    for message in websocket:
+        m = message.split('/')
+        chan = m[1]
+        note = m[3]
+        vel = m[4]
+        if m[2] == "noteon":
+            # note_on
+            try:
+                index = config["midi"]["input"].index(["note_on", chan+1])
+            except ValueError:
+                pass
+            value = note / 127.0
+            construct_input_list(index,value)            
+        # if m[2] == "noteoff":
+        #     # note_off - do nothing
+        if m[2] == "cc":
+            # cc
+            try:
+                index = config["midi"]["input"].index(["control_change", chan+1, note])
+            except ValueError:
+                pass
+            value = vel / 127.0
+            construct_input_list(index,value)
+
+        # global websocket
+        # ws_msg = f"/channel/{message.channel}/noteon/{message.note}/{message.velocity}"
+        # ws_msg = f"/channel/{message.channel}/noteoff/{message.note}/{message.velocity}"
+        # ws_msg = f"/channel/{message.channel}/cc/{message.control}/{message.value}"
+
+
 
 
 def monitor_user_action():
@@ -435,6 +470,7 @@ try:
         make_prediction(sess, compute_graph)
         if config["interaction"]["mode"] == "callresponse":
             handle_midi_input() # handles incoming midi queue
+            handle_websocket_input() # handles incoming websocket queue
             monitor_user_action()
 except KeyboardInterrupt:
     click.secho("\nCtrl-C received... exiting.", fg='red')
