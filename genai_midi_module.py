@@ -11,6 +11,8 @@ from threading import Thread
 import mido
 import click
 from websockets.sync.client import connect # websockets connection
+from websockets.sync.server import serve
+import websockets
 
 click.secho("Opening configuration.", fg="yellow")
 with open("config.toml", "rb") as f:
@@ -56,15 +58,15 @@ except:
     click.secho("Could not open serial port, might be in development mode.", fg='red')
 
 # Set up websocket client
-if config["websocket"]:
-    click.secho("Opening websocket for OSC in/out.", fg='yellow')
-    client_url = f"ws://{config['websocket']['client_ip']}:{config['websocket']['client_port']}" # the URL for the websocket client to send to.
-    try:
-        websocket = connect(client_url)
-        click.secho(f"Success! WS Connected to {config['websocket']['client_ip']}", fg='green')
-    except:
-        click.secho("Could not connect to websocket.", fg='red')
-        websocket = None
+# if config["websocket"]:
+#     click.secho("Opening websocket for OSC in/out.", fg='yellow')
+#     client_url = f"ws://{config['websocket']['client_ip']}:{config['websocket']['client_port']}" # the URL for the websocket client to send to.
+#     try:
+#         ws_client = connect(client_url)
+#         click.secho(f"Success! WS Connected to {config['websocket']['client_ip']}", fg='green')
+#     except:
+#         click.secho("Could not connect to websocket.", fg='red')
+#         ws_client = None
 
 # Input and output to serial are bytes (0-255)
 # Output to Pd is a float (0-1)
@@ -284,25 +286,8 @@ def serial_send_midi(message):
         pass
 
 
-def websocket_send_midi(message):
-    """Sends a mido MIDI message via websockets if available."""
-    # global websocket
-    if message.type == "note_on":
-        ws_msg = f"/channel/{message.channel}/noteon/{message.note}/{message.velocity}"
-    if message.type == "note_off":
-        ws_msg = f"/channel/{message.channel}/noteoff/{message.note}/{message.velocity}"
-    if message.type == "control_change":
-        ws_msg = f"/channel/{message.channel}/cc/{message.control}/{message.value}"
-    else:
-        return
-
-    try: 
-        websocket.send(ws_msg) # websocket message
-    except:
-        pass
-
 def playback_rnn_loop():
-    # Plays back RNN notes from its buffer queue.
+    """Plays back RNN notes from its buffer queue. This loop blocks and should run in a separate thread."""
     while True:
         item = rnn_output_buffer.get(block=True, timeout=None)  # Blocks until next item is available.
         dt = item[0]
@@ -366,10 +351,28 @@ def handle_midi_input():
                 pass
 
 
-def handle_websocket_input():
-    """Handle websocket input messages that might arrive"""
-    if websocket is None:
+def websocket_send_midi(message):
+    """Sends a mido MIDI message via websockets if available."""
+    # if ws_client is None:
+    #     return
+    if message.type == "note_on":
+        ws_msg = f"/channel/{message.channel}/noteon/{message.note}/{message.velocity}"
+    if message.type == "note_off":
+        ws_msg = f"/channel/{message.channel}/noteoff/{message.note}/{message.velocity}"
+    if message.type == "control_change":
+        ws_msg = f"/channel/{message.channel}/cc/{message.control}/{message.value}"
+    else:
         return
+    # ws_client.send(ws_msg) # websocket message
+    # if config["websocket"]:
+    client_url = f"ws://{config['websocket']['client_ip']}:{config['websocket']['client_port']}" # the URL for the websocket client to send to.
+    with websockets.sync.client.connect(client_url) as ws_client:
+        ws_client.send(ws_msg) # websocket message
+
+
+def websocket_handler(websocket):
+    """Handle websocket input messages that might arrive"""
+    
     for message in websocket:
         click.secho(f"WS: {message}", fg="red") # TODO: fine for debug, but should be removed really.
         m = message.split('/')[1:]
@@ -398,8 +401,17 @@ def handle_websocket_input():
         # ws_msg = f"/channel/{message.channel}/noteoff/{message.note}/{message.velocity}"
         # ws_msg = f"/channel/{message.channel}/cc/{message.control}/{message.value}"
 
+
+def websocket_serve_loop():
+    """Threading websockets server following https://websockets.readthedocs.io/en/stable/reference/sync/server.html"""
+    hostname = config['websocket']['server_ip']
+    port = config['websocket']['server_port']
+    with serve(websocket_handler, hostname, port) as server:
+        server.serve_forever()
+
+
 def monitor_user_action():
-    # Handles changing responsibility in Call-Response mode.
+    """Handles changing responsibility in Call-Response mode."""
     global call_response_mode
     global user_to_rnn
     global rnn_to_rnn
@@ -480,8 +492,8 @@ with compute_graph.as_default():
 
 click.secho("Preparing MDRNN thread.", fg='yellow')
 rnn_thread = Thread(target=playback_rnn_loop, name="rnn_player_thread", daemon=True)
-click.secho("Preparing websocket thre.", fg='yellow')
-ws_thread = Thread(target=handle_websocket_input, name="ws_receiver_thread", daemon=True)
+click.secho("Preparing websocket thread.", fg='yellow')
+ws_thread = Thread(target=websocket_serve_loop, name="ws_receiver_thread", daemon=True)
 
 try:
     rnn_thread.start()
