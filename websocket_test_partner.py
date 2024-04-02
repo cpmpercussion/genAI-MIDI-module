@@ -35,7 +35,7 @@ async def send_client_messages():
     # websockets.broadcast(CLIENTS_LIST, ws_msg)
     try: 
       async with websockets.connect(genai_uri) as websocket:
-        websocket.send(ws_msg)
+        await websocket.send(ws_msg)
     except:
       pass
     await asyncio.sleep(random.random() + 1)
