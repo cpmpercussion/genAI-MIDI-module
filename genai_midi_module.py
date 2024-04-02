@@ -371,25 +371,24 @@ def handle_websocket_input():
     if websocket is None:
         return
     for message in websocket:
-        m = message.split('/')
-        chan = m[1]
-        note = m[3]
-        vel = m[4]
-        if m[2] == "noteon":
+        click.secho(f"WS: {message}", fg="red") # TODO: fine for debug, but should be removed really.
+        m = message.split('/')[1:]
+        msg_type = m[2]
+        chan = int(m[1]) # TODO: should this be chan+1 or -1 or something.
+        note = int(m[3])
+        vel = int(m[4])
+        if msg_type == "noteon":
             # note_on
             try:
-                index = config["midi"]["input"].index(["note_on", chan+1])
+                index = config["midi"]["input"].index(["note_on", chan])
                 value = note / 127.0
-                construct_input_list(index,value)  
+                construct_input_list(index,value)
             except ValueError:
                 pass
-          
-        # if m[2] == "noteoff":
-        #     # note_off - do nothing
-        if m[2] == "cc":
+        elif msg_type == "cc":
             # cc
             try:
-                index = config["midi"]["input"].index(["control_change", chan+1, note])
+                index = config["midi"]["input"].index(["control_change", chan, note])
                 value = vel / 127.0
                 construct_input_list(index,value)
             except ValueError:
@@ -398,7 +397,6 @@ def handle_websocket_input():
         # ws_msg = f"/channel/{message.channel}/noteon/{message.note}/{message.velocity}"
         # ws_msg = f"/channel/{message.channel}/noteoff/{message.note}/{message.velocity}"
         # ws_msg = f"/channel/{message.channel}/cc/{message.control}/{message.value}"
-
 
 def monitor_user_action():
     # Handles changing responsibility in Call-Response mode.
@@ -482,9 +480,12 @@ with compute_graph.as_default():
 
 click.secho("Preparing MDRNN thread.", fg='yellow')
 rnn_thread = Thread(target=playback_rnn_loop, name="rnn_player_thread", daemon=True)
+click.secho("Preparing websocket thre.", fg='yellow')
+ws_thread = Thread(target=handle_websocket_input, name="ws_receiver_thread", daemon=True)
 
 try:
     rnn_thread.start()
+    ws_thread.start()
     click.secho("RNN Thread Started", fg="green")
     while True:
         make_prediction(sess, compute_graph)
@@ -496,6 +497,7 @@ except KeyboardInterrupt:
     click.secho("\nCtrl-C received... exiting.", fg='red')
     thread_running = False
     rnn_thread.join(timeout=0.1)
+    ws_thread.join(timeout=0.1)
     send_midi_note_offs() # stop all midi notes.
     try:
         websocket.close()
