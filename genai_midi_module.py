@@ -240,12 +240,14 @@ def send_midi_note_on(channel, pitch, velocity):
     global last_midi_notes
     # stop the previous note
     try:
+        # TODO: this bit fails! debug this tomorrow.
         midi_msg = mido.Message('note_off', channel=channel, note=last_midi_notes[channel], velocity=0)
         midi_out_port.send(midi_msg)
         serial_send_midi(midi_msg)
         websocket_send_midi(midi_msg)
         # do this by whatever other channels necessary
     except KeyError:
+        click.secho("Something wrong with turning MIDI notes off!!", fg="red")
         pass
 
     # play the present note
@@ -263,10 +265,11 @@ def send_midi_note_offs():
     for i in out_channels:
         try:
             midi_msg = mido.Message('note_off', channel=i-1, note=last_midi_notes[i-1], velocity=0)
-            midi_out_port.send(midi_msg)
+            midi_out_port.send(midi_msg) # TODO: check this is being sent.
             serial_send_midi(midi_msg)
             websocket_send_midi(midi_msg)
         except KeyError:
+            click.secho("Something wrong with all MIDI Note off!", fg="red")
             pass
 
 
@@ -366,8 +369,11 @@ def websocket_send_midi(message):
     # ws_client.send(ws_msg) # websocket message
     # if config["websocket"]:
     client_url = f"ws://{config['websocket']['client_ip']}:{config['websocket']['client_port']}" # the URL for the websocket client to send to.
-    with websockets.sync.client.connect(client_url) as ws_client:
-        ws_client.send(ws_msg) # websocket message
+    try:
+        with websockets.sync.client.connect(client_url) as ws_client:
+            ws_client.send(ws_msg) # websocket message
+    except:
+        pass
 
 
 def websocket_handler(websocket):
