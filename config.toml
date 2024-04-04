@@ -1,6 +1,6 @@
 # The configuration file for the GenAI-MIDI-module
 
-title = "Default"
+title = "Microfreak"
 
 log = true
 log_predictions = false
