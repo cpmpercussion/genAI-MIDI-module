@@ -14,7 +14,7 @@ name = ""
 [interaction]
 mode = "callresponse" # Can be: "callresponse", "polyphony", "battle", "useronly"
 threshold = 0.1 # number of seconds before switching in call-response mode
-input_thru = false
+input_thru = false # sends input signals directly to output
 
 # Model configuration
 [model]
