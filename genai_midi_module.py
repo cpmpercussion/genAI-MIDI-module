@@ -22,6 +22,9 @@ click.secho("Listing MIDI Inputs and Outputs", fg='yellow')
 click.secho(f"Input: {mido.get_input_names()}", fg = 'blue')
 click.secho(f"Output: {mido.get_output_names()}", fg = 'blue')
 
+# TODO: some storage for all the output channels.
+OUTPUT_CHANNELS = {}
+
 
 def match_midi_port_to_list(port, port_list):
     """Return the closest actual MIDI port name given a partial match and a list."""
@@ -57,16 +60,21 @@ except:
     ser = None
     click.secho("Could not open serial port, might be in development mode.", fg='red')
 
-# Set up websocket client
-# if config["websocket"]:
-#     click.secho("Opening websocket for OSC in/out.", fg='yellow')
-#     client_url = f"ws://{config['websocket']['client_ip']}:{config['websocket']['client_port']}" # the URL for the websocket client to send to.
-#     try:
-#         ws_client = connect(client_url)
-#         click.secho(f"Success! WS Connected to {config['websocket']['client_ip']}", fg='green')
-#     except:
-#         click.secho("Could not connect to websocket.", fg='red')
-#         ws_client = None
+
+def create_websocket_client() -> websockets.sync.client.ClientConnection:
+    # Set up websocket client
+    click.secho("Opening websocket for OSC in/out.", fg='yellow')
+    client_uri = f"ws://{config['websocket']['client_ip']}:{config['websocket']['client_port']}" # the URL for the websocket client to send to. 
+    try:
+        client = connect(client_uri)
+        click.secho(f"Success! WS Connected to {config['websocket']['client_ip']}", fg='green')
+        return client
+    except:
+        click.secho(f"Could not connect to websocket: {client_uri}", fg='red')
+        return None
+    
+
+ws_client = create_websocket_client()
 
 # Input and output to serial are bytes (0-255)
 # Output to Pd is a float (0-1)
@@ -196,30 +204,10 @@ last_note_played = []
 # /channel/1/noteoff/54 + ip address + timestamp
 
 
-# def send_sound_command(command_args):
-#     """Send a sound command back to the interface/synth"""
-#     global last_note_played
-#     assert len(command_args)+1 == dimension, "Dimension not same as prediction size." # Todo more useful error.
-#     assert dimension <= 17, "Dimension > 17 is not compatible with MIDI pitch sending."
-#     if len(last_note_played) < (dimension-1):
-#         # prime the last_note_played list.
-#         last_note_played = [0] * (dimension-1)
-#     # TODO put in serial sending code here
-#     # should just send "note on" based on first argument.
-#     new_notes = list(map(int, (np.ceil(command_args * 127))))
-#     ## order is (cmd/channel), pitch, vel
-#     for channel in range(dimension-1):
-#         send_note_off(channel, last_note_played[channel], 0) # stop last note
-#         send_note_on(channel, new_notes[channel], 127) # play new note
-#     print(f'sent MIDI note: {new_notes}')
-#     last_note_played = new_notes # remember last note played
-
-
-
-
 def send_sound_command_midi(command_args):
     """Sends sound commands via MIDI"""
     assert len(command_args)+1 == dimension, "Dimension not same as prediction size." # Todo more useful error.
+    start_time = datetime.datetime.now()
     outconf = config["midi"]["output"]
     values = list(map(int, (np.ceil(command_args * 127))))
     if VERBOSE:
@@ -230,8 +218,11 @@ def send_sound_command_midi(command_args):
             send_midi_note_on(outconf[i][1]-1, values[i], 127) # note decremented channel (0-15)
         if outconf[i][0] == "control_change":
             send_control_change(outconf[i][1]-1, outconf[i][2], values[i]) # note decrement channel (0-15)
+    duration_time = (datetime.datetime.now() - start_time).total_seconds()
+    if duration_time > 0.02:
+        click.secho(f"Sound command sending took a long time: {(duration_time):.3f}s", fg="red")
     # TODO: is it a good idea to have all this indexing? easy to screw up.
-            
+
 
 last_midi_notes = {} # dict to store last played notes via midi
 
@@ -240,11 +231,9 @@ def send_midi_note_on(channel, pitch, velocity):
     global last_midi_notes
     # stop the previous note
     try:
-        # TODO: this bit fails! debug this tomorrow.
         midi_msg = mido.Message('note_off', channel=channel, note=last_midi_notes[channel], velocity=0)
-        midi_out_port.send(midi_msg)
-        serial_send_midi(midi_msg)
-        websocket_send_midi(midi_msg)
+        send_midi_message(midi_msg)
+        # click.secho(f"MIDI: note_off: {last_midi_notes[channel]}: msg: {midi_msg.bin()}", fg="blue")
         # do this by whatever other channels necessary
     except KeyError:
         click.secho("Something wrong with turning MIDI notes off!!", fg="red")
@@ -252,9 +241,8 @@ def send_midi_note_on(channel, pitch, velocity):
 
     # play the present note
     midi_msg = mido.Message('note_on', channel=channel, note=pitch, velocity=velocity)
-    midi_out_port.send(midi_msg)
-    serial_send_midi(midi_msg)
-    websocket_send_midi(midi_msg)
+    send_midi_message(midi_msg)
+    # click.secho(f"MIDI: note_on: {pitch}: msg: {midi_msg.bin()}", fg="blue")
     last_midi_notes[channel] = pitch
 
 def send_midi_note_offs():
@@ -265,9 +253,8 @@ def send_midi_note_offs():
     for i in out_channels:
         try:
             midi_msg = mido.Message('note_off', channel=i-1, note=last_midi_notes[i-1], velocity=0)
-            midi_out_port.send(midi_msg) # TODO: check this is being sent.
-            serial_send_midi(midi_msg)
-            websocket_send_midi(midi_msg)
+            send_midi_message(midi_msg)
+            # click.secho(f"MIDI: note_off: {last_midi_notes[i-1]}: msg: {midi_msg.bin()}", fg="blue")
         except KeyError:
             click.secho("Something wrong with all MIDI Note off!", fg="red")
             pass
@@ -276,15 +263,22 @@ def send_midi_note_offs():
 def send_control_change(channel, control, value):
     """Send a MIDI control change message"""
     midi_msg = mido.Message('control_change', channel=channel, control=control, value=value)
-    midi_out_port.send(midi_msg)
-    serial_send_midi(midi_msg)
-    websocket_send_midi(midi_msg)
+    send_midi_message(midi_msg)
+
+
+def send_midi_message(msg):
+    """Send a MIDI message across all required outputs"""
+    # TODO: this is where we can have laggy performance, careful.
+    midi_out_port.send(msg)
+    serial_send_midi(msg)
+    websocket_send_midi(msg)
+
 
 
 def serial_send_midi(message):
     """Sends a mido MIDI message via the very basic serial output on Raspberry Pi GPIO."""
     try:
-        ser.write(message.bin)
+        ser.write(message.bin())
     except: 
         pass
 
@@ -294,9 +288,12 @@ def playback_rnn_loop():
     while True:
         item = rnn_output_buffer.get(block=True, timeout=None)  # Blocks until next item is available.
         dt = item[0]
+        # click.secho(f"Raw dt: {dt}", fg="blue")
         x_pred = np.minimum(np.maximum(item[1:], 0), 1)
         dt = max(dt, 0.001)  # stop accidental minus and zero dt.
         dt = dt * config["model"]["timescale"] # timescale modification!
+        # click.secho(f"Sleeping for dt: {dt}", fg="blue")
+
         time.sleep(dt)  # wait until time to play the sound
         # put last played in queue for prediction.
         rnn_prediction_queue.put_nowait(np.concatenate([np.array([dt]), x_pred]))
@@ -330,6 +327,9 @@ def construct_input_list(index, value):
     assert len(last_user_interaction_data) == dimension, "Input is incorrect dimension, set dimension to %r" % len(last_user_interaction_data)
     # These values are accessed by the RNN in the interaction loop function.
     interface_input_queue.put_nowait(last_user_interaction_data)
+    # Send values to output if in config
+    if config["input_thru"]:
+            send_sound_command_midi(np.minimum(np.maximum(last_user_interaction_data[1:], 0), 1))
 
 
 def handle_midi_input():
@@ -356,8 +356,9 @@ def handle_midi_input():
 
 def websocket_send_midi(message):
     """Sends a mido MIDI message via websockets if available."""
-    # if ws_client is None:
-    #     return
+    global ws_client
+    if ws_client is None:
+        return
     if message.type == "note_on":
         ws_msg = f"/channel/{message.channel}/noteon/{message.note}/{message.velocity}"
     if message.type == "note_off":
@@ -366,14 +367,17 @@ def websocket_send_midi(message):
         ws_msg = f"/channel/{message.channel}/cc/{message.control}/{message.value}"
     else:
         return
-    # ws_client.send(ws_msg) # websocket message
-    # if config["websocket"]:
-    client_url = f"ws://{config['websocket']['client_ip']}:{config['websocket']['client_port']}" # the URL for the websocket client to send to.
     try:
-        with websockets.sync.client.connect(client_url) as ws_client:
-            ws_client.send(ws_msg) # websocket message
-    except:
-        pass
+        ws_client.send(ws_msg) # websocket message
+    except websockets.exceptions.ConnectionClosed: 
+        ws_client = create_websocket_client()
+    # if config["websocket"]:
+    # client_url = f"ws://{config['websocket']['client_ip']}:{config['websocket']['client_port']}" # the URL for the websocket client to send to.
+    # try:
+    #     with websockets.sync.client.connect(client_url) as ws_client:
+    #         ws_client.send(ws_msg) # websocket message
+    # except:
+    #     pass
 
 
 def websocket_handler(websocket):
@@ -500,6 +504,9 @@ click.secho("Preparing MDRNN thread.", fg='yellow')
 rnn_thread = Thread(target=playback_rnn_loop, name="rnn_player_thread", daemon=True)
 click.secho("Preparing websocket thread.", fg='yellow')
 ws_thread = Thread(target=websocket_serve_loop, name="ws_receiver_thread", daemon=True)
+ws_client = create_websocket_client()
+
+
 
 try:
     rnn_thread.start()
