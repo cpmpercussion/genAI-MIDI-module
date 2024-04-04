@@ -328,7 +328,7 @@ def construct_input_list(index, value):
     # These values are accessed by the RNN in the interaction loop function.
     interface_input_queue.put_nowait(last_user_interaction_data)
     # Send values to output if in config
-    if config["input_thru"]:
+    if config["interaction"]["input_thru"]:
             send_sound_command_midi(np.minimum(np.maximum(last_user_interaction_data[1:], 0), 1))
 
 
