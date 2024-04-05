@@ -10,7 +10,6 @@ import tomllib
 from threading import Thread
 import mido
 import click
-from websockets.sync.client import connect # websockets connection
 from websockets.sync.server import serve
 import websockets
 
@@ -24,6 +23,8 @@ click.secho(f"Output: {mido.get_output_names()}", fg = 'blue')
 
 # TODO: some storage for all the output channels.
 OUTPUT_CHANNELS = {}
+
+WS_CLIENTS = set() # storage for potential ws clients.
 
 
 def match_midi_port_to_list(port, port_list):
@@ -59,25 +60,6 @@ try:
 except:
     ser = None
     click.secho("Could not open serial port, might be in development mode.", fg='red')
-
-
-def create_websocket_client() -> websockets.sync.client.ClientConnection:
-    # Set up websocket client
-    click.secho("Opening websocket for OSC in/out.", fg='yellow')
-    client_uri = f"ws://{config['websocket']['client_ip']}:{config['websocket']['client_port']}" # the URL for the websocket client to send to. 
-    try:
-        client = connect(client_uri)
-        click.secho(f"Success! WS Connected to {config['websocket']['client_ip']}", fg='green')
-        return client
-    except:
-        click.secho(f"Could not connect to websocket: {client_uri}", fg='red')
-        return None
-    
-
-ws_client = create_websocket_client()
-
-# Input and output to serial are bytes (0-255)
-# Output to Pd is a float (0-1)
 
 
 VERBOSE = config["verbose"]
@@ -357,32 +339,29 @@ def handle_midi_input():
 def websocket_send_midi(message):
     """Sends a mido MIDI message via websockets if available."""
     global ws_client
-    if ws_client is None:
-        return
+
     if message.type == "note_on":
         ws_msg = f"/channel/{message.channel}/noteon/{message.note}/{message.velocity}"
-    if message.type == "note_off":
+    elif message.type == "note_off":
         ws_msg = f"/channel/{message.channel}/noteoff/{message.note}/{message.velocity}"
-    if message.type == "control_change":
+    elif message.type == "control_change":
         ws_msg = f"/channel/{message.channel}/cc/{message.control}/{message.value}"
     else:
         return
-    try:
-        ws_client.send(ws_msg) # websocket message
-    except websockets.exceptions.ConnectionClosed: 
-        ws_client = create_websocket_client()
-    # if config["websocket"]:
-    # client_url = f"ws://{config['websocket']['client_ip']}:{config['websocket']['client_port']}" # the URL for the websocket client to send to.
-    # try:
-    #     with websockets.sync.client.connect(client_url) as ws_client:
-    #         ws_client.send(ws_msg) # websocket message
-    # except:
-    #     pass
+    # click.secho(f"WS out: {ws_msg}")
+    # Broadcast the ws_msg to all clients (sync version can't use websockets.broadcast function so doing this naively)
+    for ws_client in WS_CLIENTS.copy():
+        try:
+            ws_client.send(ws_msg)
+        except:
+            WS_CLIENTS.remove(ws_client)
 
 
 def websocket_handler(websocket):
     """Handle websocket input messages that might arrive"""
-    
+    global WS_CLIENTS
+    WS_CLIENTS.add(websocket) # add websocket to the client list.
+    # do the actual handling
     for message in websocket:
         click.secho(f"WS: {message}", fg="red") # TODO: fine for debug, but should be removed really.
         m = message.split('/')[1:]
@@ -397,6 +376,7 @@ def websocket_handler(websocket):
                 value = note / 127.0
                 construct_input_list(index,value)
             except ValueError:
+                click.secho(f"WS in: exception with message {message}", fg="red")
                 pass
         elif msg_type == "cc":
             # cc
@@ -405,6 +385,7 @@ def websocket_handler(websocket):
                 value = vel / 127.0
                 construct_input_list(index,value)
             except ValueError:
+                click.secho(f"WS in: exception with message {message}", fg="red")
                 pass
         # global websocket
         # ws_msg = f"/channel/{message.channel}/noteon/{message.note}/{message.velocity}"
@@ -504,8 +485,6 @@ click.secho("Preparing MDRNN thread.", fg='yellow')
 rnn_thread = Thread(target=playback_rnn_loop, name="rnn_player_thread", daemon=True)
 click.secho("Preparing websocket thread.", fg='yellow')
 ws_thread = Thread(target=websocket_serve_loop, name="ws_receiver_thread", daemon=True)
-ws_client = create_websocket_client()
-
 
 
 try:
