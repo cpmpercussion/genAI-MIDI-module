@@ -1,52 +1,48 @@
 #!/usr/bin/env python
+"""
+Testing partner script: connects via websocket to the genai_midi_module, sends periodic messages and receives whatever is sent back.
+"""
 
-from threading import Thread
 import click
 import asyncio
 import random
 import websockets
-from websockets.server import serve
 
-genai_server_ip = "localhost"
+genai_server_ip = "127.0.0.1"
 genai_server_port = 5001
-genai_uri = f"ws://{genai_server_ip}:{genai_server_port}" # the URL for the websocket client to send to.
-CLIENTS_LIST = set()
+genai_uri = f"ws://{genai_server_ip}:{genai_server_port}" # the URL for the websocket client to send to/receive from.
 
 
-async def register(websocket):
-  """Registers a client to the set. Runs on receipt of any message."""
-  CLIENTS_LIST.add(websocket)
-  try:
-    await websocket.wait_closed()
-    click.secho(f"Added client: {websocket.remote_address}", fg="green")
-  finally:
-    CLIENTS_LIST.remove(websocket)
-
-
-async def send_client_messages():
-  """Broadcast random noteon messages to all connected clients."""
+async def send_client_messages(websocket):
+  """Broadcast random MIDI messages to all connected clients."""
   while True:
-    # TODO: check that the client list isn't empty.
-    channel = 1
-    note = random.randrange(127)
+    channel = 11
+    note = random.randrange(8) + 1
     velocity = random.randrange(127)
-    ws_msg = f"/channel/{channel}/noteon/{note}/{velocity}"
+    # ws_msg = f"/channel/{channel}/noteon/{note}/{velocity}"
+    ws_msg = f"/channel/{channel}/cc/{note}/{velocity}"
     click.secho(f"Sending: {ws_msg}", fg="blue")
-    # websockets.broadcast(CLIENTS_LIST, ws_msg)
-    try: 
-      async with websockets.connect(genai_uri) as websocket:
-        await websocket.send(ws_msg)
-    except:
-      pass
+    await websocket.send(ws_msg)
     await asyncio.sleep(random.random() + 1)
 
 
+async def receive_client_messages(websocket):
+  """Receives websocket messages asynchronously."""
+  async for msg in websocket:
+    click.secho(f"Received: {msg}", fg="yellow")
+
+
 async def main():
-  """Start the server."""
-  async with serve(register, "localhost", 8765):
-    await send_client_messages()
+  """Connect to the genAI_midi_module, send and receive messages."""
+  async for websocket in websockets.connect(genai_uri):
+    try:
+        await asyncio.gather(send_client_messages(websocket), receive_client_messages(websocket))
+    except websockets.ConnectionClosed:
+        click.secho(f"Connection closed to {genai_uri}, will try to reconnect.", fg="red")
+        continue
 
 
 if __name__ == '__main__':
     click.secho("Starting up websocket test partner..", fg="yellow")
     asyncio.run(main())
+    print("closing")
