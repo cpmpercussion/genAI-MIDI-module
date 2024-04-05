@@ -1,20 +1,20 @@
 # The configuration file for the GenAI-MIDI-module
 
-title = "Microfreak"
+# Metadata about this configuration
+title = "X-TOUCH in Volca FM out"
+description = ""
+owner = "Charles Martin"
 
+# Basic config
 log = true
 log_predictions = false
 verbose = true
-
-# Metadata about this configuration
-[owner]
-name = ""
 
 # Interaction Configuration
 [interaction]
 mode = "callresponse" # Can be: "callresponse", "polyphony", "battle", "useronly"
 threshold = 0.1 # number of seconds before switching in call-response mode
-input_thru = false # sends input signals directly to output
+input_thru = true # sends inputs directly to outputs (e.g., if input interface is different than output synth)
 
 # Model configuration
 [model]
@@ -27,34 +27,29 @@ timescale = 1
 
 # MIDI Mapping
 [midi]
-in_device = "MicroFreak"
-out_device = "MicroFreak"
-input = [
-  ["note_on", 1],
-  ["control_change", 1, 2],
-  ["control_change", 1, 5],
-  ["control_change", 1, 9],
-  ["control_change", 1, 10],
-  ["control_change", 1, 12],
-  ["control_change", 1, 13],
-  ["control_change", 1, 23],
-  ]
-output = [
-  ["note_on", 1],
-  ["control_change", 1, 2],
-  ["control_change", 1, 5],
-  ["control_change", 1, 9],
-  ["control_change", 1, 10],
-  ["control_change", 1, 12],
-  ["control_change", 1, 13],
-  ["control_change", 1, 23],
+in_device = "X-TOUCH"
+out_device = "Studio 1824c"
+input = [ # XTOUCH-MINI knobs
+  ["control_change", 11, 1], # XTOUCH-MINI knob controller 1
+  ["control_change", 11, 2], # XTOUCH-MINI knob controller 2
+  ["control_change", 11, 3], # XTOUCH-MINI knob controller 3
+  ["control_change", 11, 4], # XTOUCH-MINI knob controller 4
+  ["control_change", 11, 5], # XTOUCH-MINI knob controller 5 
+  ["control_change", 11, 6], # XTOUCH-MINI knob controller 6
+  ["control_change", 11, 7], # XTOUCH-MINI knob controller 7
+  ["control_change", 11, 8], # XTOUCH-MINI knob controller 8
+]
+output = [ # Volca FM
+  ["note_on", 1], # note
+  ["control_change", 1, 42], # Modulator Attack
+  ["control_change", 1, 43], # Modulator Decay
+  ["control_change", 1, 44], # Carrier Attack
+  ["control_change", 1, 45], # Carrier Decay
+  ["control_change", 1, 46], # LFO rate
+  ["control_change", 1, 47], # LFO depth
+  ["control_change", 1, 48], # Algorithm
 ]
 
-# Websocket section enables websocket sending, remove to disable websocket sending
 [websocket]
-client_ip = "192.168.0.103" # The address to send messages to
-client_port = "3000" # The port to send messages to
-server_ip = "localhost" # The address of this server
-server_port = "5001" # The port this server should listen on.
-
-# "models/musicMDRNN-dim2-layers2-units32-mixtures5-scale10-human.h5"
+server_ip = "0.0.0.0" # The address of this server
+server_port = 5001 # The port this server should listen on.
