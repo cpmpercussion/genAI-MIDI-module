@@ -1,14 +1,17 @@
 # The configuration file for the GenAI-MIDI-module
 
+# Metadata about this configuration
 title = "X-TOUCH in Volca FM out"
 
+description = ""
+
+[owner]
+name = "Charles Martin"
+
+# Basic config
 log = true
 log_predictions = false
 verbose = true
-
-# Metadata about this configuration
-[owner]
-name = "Charles Martin"
 
 # Interaction Configuration
 [interaction]
@@ -28,7 +31,6 @@ timescale = 1
 # MIDI Mapping
 [midi]
 in_device = "X-TOUCH"
-# out_device = "USB2.0-MIDI Port 1"
 out_device = "Studio 1824c"
 input = [ # XTOUCH-MINI knobs
   ["control_change", 11, 1], # XTOUCH-MINI knob controller 1
@@ -51,9 +53,6 @@ output = [ # Volca FM
   ["control_change", 1, 48], # Algorithm
 ]
 
-# Websocket section enables websocket sending, remove to disable websocket sending
 [websocket]
-client_ip = "localhost" # "192.168.0.103" # The address to send messages to
-client_port = 8765 # "3000" # The port to send messages to
-server_ip = "localhost" # The address of this server
+server_ip = "0.0.0.0" # The address of this server
 server_port = 5001 # The port this server should listen on.
