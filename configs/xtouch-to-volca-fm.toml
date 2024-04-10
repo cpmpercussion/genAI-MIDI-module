@@ -2,11 +2,8 @@
 
 # Metadata about this configuration
 title = "X-TOUCH in Volca FM out"
-
+owner = "Charles Martin"
 description = ""
-
-[owner]
-name = "Charles Martin"
 
 # Basic config
 log = true
