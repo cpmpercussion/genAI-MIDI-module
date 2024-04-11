@@ -17,15 +17,17 @@ click.secho("Opening configuration.", fg="yellow")
 with open("config.toml", "rb") as f:
     config = tomllib.load(f)
 
+## Load global variables from the config file.
+VERBOSE = config["verbose"]
+dimension = config["model"]["dimension"] # retrieve dimension from the config file.
+
 click.secho("Listing MIDI Inputs and Outputs", fg='yellow')
 click.secho(f"Input: {mido.get_input_names()}", fg = 'blue')
 click.secho(f"Output: {mido.get_output_names()}", fg = 'blue')
 
 # TODO: some storage for all the output channels.
 OUTPUT_CHANNELS = {}
-
 WS_CLIENTS = set() # storage for potential ws clients.
-
 
 def match_midi_port_to_list(port, port_list):
     """Return the closest actual MIDI port name given a partial match and a list."""
@@ -62,8 +64,7 @@ except:
     click.secho("Could not open serial port, might be in development mode.", fg='red')
 
 
-VERBOSE = config["verbose"]
-LOG_ENABLED = config["log"]
+
 
 
 # Import Keras and tensorflow, doing this later to make CLI more responsive.
@@ -73,34 +74,6 @@ import empi_mdrnn
 import tensorflow.compat.v1 as tf
 print("Done. That took", time.time() - start_import, "seconds.")
 
-# Choose model parameters.
-if config["model"]["size"] == 'xs':
-    click.secho("Using XS model.")
-    mdrnn_units = 32
-    mdrnn_mixes = 5
-    mdrnn_layers = 2
-elif config["model"]["size"] == 's':
-    click.secho("Using S model.")
-    mdrnn_units = 64
-    mdrnn_mixes = 5
-    mdrnn_layers = 2
-elif config["model"]["size"] == 'm':
-    click.secho("Using M model.")
-    mdrnn_units = 128
-    mdrnn_mixes = 5
-    mdrnn_layers = 2
-elif config["model"]["size"] == 'l':
-    click.secho("Using L model.")
-    mdrnn_units = 256
-    mdrnn_mixes = 5
-    mdrnn_layers = 2
-elif config["model"]["size"] == 'xl':
-    click.secho("Using XL model.")
-    mdrnn_units = 512
-    mdrnn_mixes = 5
-    mdrnn_layers = 3
-
-dimension = config["model"]["dimension"] # retrieve dimension from the config file.
 
 # Interaction Loop Parameters
 # All set to false before setting is chosen.
@@ -131,9 +104,35 @@ elif config["interaction"]["mode"] == "useronly":
     rnn_to_rnn = False
     rnn_to_sound = False
 
-
-def build_network(sess):
-    """Build the MDRNN."""
+def build_network(sess, size, dimension):
+    """Build the MDRNN, uses a high-level size parameter and dimension."""
+    # Choose model parameters.
+    if size == 'xs':
+        click.secho("MDRNN: Using XS model.", fg="green")
+        mdrnn_units = 32
+        mdrnn_mixes = 5
+        mdrnn_layers = 2
+    elif size == 's':
+        click.secho("MDRNN: Using S model.", fg="green")
+        mdrnn_units = 64
+        mdrnn_mixes = 5
+        mdrnn_layers = 2
+    elif size == 'm':
+        click.secho("MDRNN: Using M model.", fg="green")
+        mdrnn_units = 128
+        mdrnn_mixes = 5
+        mdrnn_layers = 2
+    elif size == 'l':
+        click.secho("MDRNN: Using L model.", fg="green")
+        mdrnn_units = 256
+        mdrnn_mixes = 5
+        mdrnn_layers = 2
+    elif size == 'xl':
+        click.secho("MDRNN: Using XL model.", fg="green")
+        mdrnn_units = 512
+        mdrnn_mixes = 5
+        mdrnn_layers = 3
+    # construct the model
     empi_mdrnn.MODEL_DIR = "./models/"
     tf.keras.backend.set_session(sess)
     with compute_graph.as_default():
@@ -144,7 +143,7 @@ def build_network(sess):
                                               layers=mdrnn_layers)
         net.pi_temp = config["model"]["pitemp"]
         net.sigma_temp = config["model"]["sigmatemp"]
-    print("MDRNN Loaded:", net.model_name())
+    click.secho(f"MDRNN Loaded: {net.model_name()}", fg="green")
     return net
 
 
@@ -181,7 +180,6 @@ def make_prediction(sess, compute_graph):
 last_note_played = []
 
 ## The MIDI and websocket sending routines
-
 # /channel/1/noteon/54 + ip address + timestamp
 # /channel/1/noteoff/54 + ip address + timestamp
 
@@ -439,28 +437,26 @@ def monitor_user_action():
             send_midi_note_offs()
 
 
-
+def setup_logging(dimension, location = "logs/"):
+    """Setup a log file and logging, requires a dimension parameter"""
+    log_file = datetime.datetime.now().isoformat().replace(":", "-")[:19] + "-" + str(dimension) + "d" +  "-mdrnn.log"  # Log file name.
+    log_file = location + log_file
+    log_format = '%(message)s'
+    logging.basicConfig(filename=log_file,
+                        level=logging.INFO,
+                        format=log_format)
+    click.secho(f'Logging enabled: {log_file}', fg='green')
 
 # Logging
-LOG_FILE = datetime.datetime.now().isoformat().replace(":", "-")[:19] + "-" + str(dimension) + "d" +  "-mdrnn.log"  # Log file name.
-LOG_FILE = "logs/" + LOG_FILE
-LOG_FORMAT = '%(message)s'
-
-if LOG_ENABLED:
-    logging.basicConfig(filename=LOG_FILE,
-                        level=logging.INFO,
-                        format=LOG_FORMAT)
-    click.secho(f'Logging enabled: {LOG_FILE}', fg='green')
-# Details for OSC output
-INPUT_MESSAGE_ADDRESS = "/interface"
-OUTPUT_MESSAGE_ADDRESS = "/prediction"
+if config["log"]:
+    setup_logging(dimension)
 
 # Set up runtime variables.
 # ## Load the Model
 compute_graph = tf.Graph()
 with compute_graph.as_default():
     sess = tf.Session()
-net = build_network(sess)
+net = build_network(sess, config["model"]["size"], config["model"]["dimension"])
 interface_input_queue = queue.Queue()
 rnn_prediction_queue = queue.Queue()
 rnn_output_buffer = queue.Queue()
@@ -469,8 +465,6 @@ last_user_interaction_time = time.time()
 last_user_interaction_data = empi_mdrnn.random_sample(out_dim=dimension)
 rnn_prediction_queue.put_nowait(empi_mdrnn.random_sample(out_dim=dimension))
 call_response_mode = 'call'
-
-thread_running = True  # todo is this line needed?
 
 # Set up run loop.
 click.secho("Preparing MDRNN.", fg='yellow')
@@ -499,7 +493,6 @@ try:
             monitor_user_action()
 except KeyboardInterrupt:
     click.secho("\nCtrl-C received... exiting.", fg='red')
-    thread_running = False
     rnn_thread.join(timeout=0.1)
     ws_thread.join(timeout=0.1)
     send_midi_note_offs() # stop all midi notes.
