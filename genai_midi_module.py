@@ -11,23 +11,7 @@ from threading import Thread
 import mido
 import click
 from websockets.sync.server import serve
-import websockets
 
-click.secho("Opening configuration.", fg="yellow")
-with open("config.toml", "rb") as f:
-    config = tomllib.load(f)
-
-## Load global variables from the config file.
-VERBOSE = config["verbose"]
-dimension = config["model"]["dimension"] # retrieve dimension from the config file.
-
-click.secho("Listing MIDI Inputs and Outputs", fg='yellow')
-click.secho(f"Input: {mido.get_input_names()}", fg = 'blue')
-click.secho(f"Output: {mido.get_output_names()}", fg = 'blue')
-
-# TODO: some storage for all the output channels.
-OUTPUT_CHANNELS = {}
-WS_CLIENTS = set() # storage for potential ws clients.
 
 def match_midi_port_to_list(port, port_list):
     """Return the closest actual MIDI port name given a partial match and a list."""
@@ -38,7 +22,21 @@ def match_midi_port_to_list(port, port_list):
         return False
     else:
         return contains_list[0]
+    
 
+click.secho("Opening configuration.", fg="yellow")
+with open("config.toml", "rb") as f:
+    config = tomllib.load(f)
+
+## Load global variables from the config file.
+VERBOSE = config["verbose"]
+dimension = config["model"]["dimension"] # retrieve dimension from the config file.
+
+# TODO: some storage for all the output channels.
+OUTPUT_CHANNELS = {}
+WS_CLIENTS = set() # storage for potential ws clients.
+
+# MIDI port opening
 click.secho("Opening MIDI port for input/output.", fg='yellow')
 try:
     desired_input_port = match_midi_port_to_list(config["midi"]["in_device"], mido.get_input_names())
@@ -54,8 +52,11 @@ try:
 except:
     midi_out_port = None
     click.secho("Could not open MIDI output.", fg='red')
+    click.secho("Listing MIDI Inputs and Outputs", fg='blue')
+    click.secho(f"Input: {mido.get_input_names()}", fg = 'blue')
+    click.secho(f"Output: {mido.get_output_names()}", fg = 'blue')
 
-
+# Serial port opening
 try:
     click.secho("Opening Serial Port for MIDI in/out.", fg='yellow')
     ser = serial.Serial('/dev/ttyAMA0', baudrate=31250)
@@ -63,17 +64,12 @@ except:
     ser = None
     click.secho("Could not open serial port, might be in development mode.", fg='red')
 
-
-
-
-
 # Import Keras and tensorflow, doing this later to make CLI more responsive.
 click.secho("Importing MDRNN.", fg='yellow')
 start_import = time.time()
 import empi_mdrnn
 import tensorflow.compat.v1 as tf
-print("Done. That took", time.time() - start_import, "seconds.")
-
+click.secho(f"Done. That took {time.time() - start_import} seconds.", fg='yellow')
 
 # Interaction Loop Parameters
 # All set to false before setting is chosen.
@@ -83,28 +79,29 @@ rnn_to_sound = False
 
 # Interactive Mapping
 if config["interaction"]["mode"] == "callresponse":
-    print("Entering call and response mode.")
+    click.secho("Config: call and response mode.", fg='blue')
     # set initial conditions.
     user_to_rnn = True
     rnn_to_rnn = False
     rnn_to_sound = False
 elif config["interaction"]["mode"] == "polyphony":
-    print("Entering polyphony mode.")
+    click.secho("Config: polyphony mode.", fg='blue')
     user_to_rnn = True
     rnn_to_rnn = False
     rnn_to_sound = True
 elif config["interaction"]["mode"] == "battle":
-    print("Entering battle royale mode.")
+    click.secho("Config: battle royale mode.", fg='blue')
     user_to_rnn = False
     rnn_to_rnn = True
     rnn_to_sound = True
 elif config["interaction"]["mode"] == "useronly":
-    print("Entering user only mode.")
+    click.secho("Config: user only mode.", fg='blue')
     user_to_rnn = False
     rnn_to_rnn = False
     rnn_to_sound = False
 
-def build_network(sess, size, dimension):
+
+def build_network(sess, compute_graph, size, dimension):
     """Build the MDRNN, uses a high-level size parameter and dimension."""
     # Choose model parameters.
     if size == 'xs':
@@ -147,22 +144,15 @@ def build_network(sess, size, dimension):
     return net
 
 
-def request_rnn_prediction(input_value):
-    """ Accesses a single prediction from the RNN. """
-    output_value = net.generate_touch(input_value)
-    return output_value
-
-
-def make_prediction(sess, compute_graph):
-    # Interaction loop: reads input, makes predictions, outputs results.
-    # Make predictions.
+def make_prediction(sess, compute_graph, neural_net):
+    """Part of the interaction loop: reads input, makes predictions, outputs results"""
 
     # First deal with user --> MDRNN prediction
     if user_to_rnn and not interface_input_queue.empty():
         item = interface_input_queue.get(block=True, timeout=None)
         tf.keras.backend.set_session(sess)
         with compute_graph.as_default():
-            rnn_output = request_rnn_prediction(item)
+            rnn_output = neural_net.generate_touch(item)
         if rnn_to_sound:
             rnn_output_buffer.put_nowait(rnn_output)
         interface_input_queue.task_done()
@@ -172,16 +162,9 @@ def make_prediction(sess, compute_graph):
         item = rnn_prediction_queue.get(block=True, timeout=None)
         tf.keras.backend.set_session(sess)
         with compute_graph.as_default():
-            rnn_output = request_rnn_prediction(item)
+            rnn_output = neural_net.generate_touch(item)
         rnn_output_buffer.put_nowait(rnn_output)  # put it in the playback queue.
         rnn_prediction_queue.task_done()
-
-
-last_note_played = []
-
-## The MIDI and websocket sending routines
-# /channel/1/noteon/54 + ip address + timestamp
-# /channel/1/noteoff/54 + ip address + timestamp
 
 
 def send_sound_command_midi(command_args):
@@ -225,6 +208,7 @@ def send_midi_note_on(channel, pitch, velocity):
     # click.secho(f"MIDI: note_on: {pitch}: msg: {midi_msg.bin()}", fg="blue")
     last_midi_notes[channel] = pitch
 
+
 def send_midi_note_offs():
     """Sends note offs on any MIDI channels that have been used for notes."""
     global last_midi_notes
@@ -252,7 +236,6 @@ def send_midi_message(msg):
     midi_out_port.send(msg)
     serial_send_midi(msg)
     websocket_send_midi(msg)
-
 
 
 def serial_send_midi(message):
@@ -447,16 +430,8 @@ def setup_logging(dimension, location = "logs/"):
                         format=log_format)
     click.secho(f'Logging enabled: {log_file}', fg='green')
 
-# Logging
-if config["log"]:
-    setup_logging(dimension)
 
 # Set up runtime variables.
-# ## Load the Model
-compute_graph = tf.Graph()
-with compute_graph.as_default():
-    sess = tf.Session()
-net = build_network(sess, config["model"]["size"], config["model"]["dimension"])
 interface_input_queue = queue.Queue()
 rnn_prediction_queue = queue.Queue()
 rnn_output_buffer = queue.Queue()
@@ -466,39 +441,54 @@ last_user_interaction_data = empi_mdrnn.random_sample(out_dim=dimension)
 rnn_prediction_queue.put_nowait(empi_mdrnn.random_sample(out_dim=dimension))
 call_response_mode = 'call'
 
-# Set up run loop.
-click.secho("Preparing MDRNN.", fg='yellow')
-tf.keras.backend.set_session(sess)
-with compute_graph.as_default():
-    if config["model"]["file"] != "":
-        net.load_model(model_file=config["model"]["file"]) # load custom model.
-    else:
-        net.load_model()  # try loading from default file location.
 
-click.secho("Preparing MDRNN thread.", fg='yellow')
-rnn_thread = Thread(target=playback_rnn_loop, name="rnn_player_thread", daemon=True)
-click.secho("Preparing websocket thread.", fg='yellow')
-ws_thread = Thread(target=websocket_serve_loop, name="ws_receiver_thread", daemon=True)
+def start_genai_midi_module():
+    """Startup function and run loop."""
+    click.secho("GenAI: Running startup and main loop.", fg="blue")
+    # Build model
+    compute_graph = tf.Graph()
+    with compute_graph.as_default():
+        sess = tf.Session()
+    net = build_network(sess, compute_graph, config["model"]["size"], config["model"]["dimension"])
 
+    # Load model weights
+    click.secho("Preparing MDRNN.", fg='yellow')
+    tf.keras.backend.set_session(sess)
+    with compute_graph.as_default():
+        if config["model"]["file"] != "":
+            net.load_model(model_file=config["model"]["file"]) # load custom model.
+        else:
+            net.load_model()  # try loading from default file location.
 
-try:
-    rnn_thread.start()
-    ws_thread.start()
-    click.secho("RNN Thread Started", fg="green")
-    while True:
-        make_prediction(sess, compute_graph)
-        if config["interaction"]["mode"] == "callresponse":
-            handle_midi_input() # handles incoming midi queue
-            # handle_websocket_input() # handles incoming websocket queue
-            monitor_user_action()
-except KeyboardInterrupt:
-    click.secho("\nCtrl-C received... exiting.", fg='red')
-    rnn_thread.join(timeout=0.1)
-    ws_thread.join(timeout=0.1)
-    send_midi_note_offs() # stop all midi notes.
+    # Threads
+    click.secho("Preparing MDRNN thread.", fg='yellow')
+    rnn_thread = Thread(target=playback_rnn_loop, name="rnn_player_thread", daemon=True)
+    click.secho("Preparing websocket thread.", fg='yellow')
+    ws_thread = Thread(target=websocket_serve_loop, name="ws_receiver_thread", daemon=True)
+
+    # Logging
+    if config["log"]:
+        setup_logging(dimension)
+
+    # Start threads and run IO loop
     try:
-        websocket.close()
-    except:
-        pass
-finally:
-    click.secho("\nDone, shutting down.", fg='red')
+        rnn_thread.start()
+        ws_thread.start()
+        click.secho("RNN Thread Started", fg="green")
+        while True:
+            make_prediction(sess, compute_graph, net)
+            if config["interaction"]["mode"] == "callresponse":
+                handle_midi_input() # handles incoming midi queue
+                # TODO: handle other kinds of input here?
+                monitor_user_action()
+    except KeyboardInterrupt:
+        click.secho("\nCtrl-C received... exiting.", fg='red')
+        rnn_thread.join(timeout=0.1)
+        ws_thread.join(timeout=0.1)
+        send_midi_note_offs() # stop all midi notes.
+    finally:
+        click.secho("\nDone, shutting down.", fg='red')
+
+
+if __name__ == '__main__':
+    start_genai_midi_module()
