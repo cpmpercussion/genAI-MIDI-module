@@ -3,6 +3,7 @@
 title = "MiniLab and Analogue V configuration"
 
 log = true
+log_predictions = false
 verbose = true
 
 # Metadata about this configuration

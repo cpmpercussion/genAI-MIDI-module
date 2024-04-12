@@ -3,6 +3,7 @@
 title = "MiniLab and Analogue V configuration"
 
 log = true
+log_predictions = false
 verbose = true
 
 # Metadata about this configuration
@@ -51,5 +52,5 @@ output = [
 
 # Websocket section enables websocket sending, remove to disable websocket sending
 [websocket]
-server_ip = "localhost" # The address of this server
-server_port = "5001" # The port this server should listen on.
+server_ip = "192.168.0.81" # The address of this server
+server_port = 5001 # The port this server should listen on.
