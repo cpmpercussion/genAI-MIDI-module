@@ -1,14 +1,12 @@
 # The configuration file for the GenAI-MIDI-module
 
 title = "MiniLab and Analogue V configuration"
+name = "Charles Martin"
 
+# General Settings
 log = true
 log_predictions = false
 verbose = true
-
-# Metadata about this configuration
-[owner]
-name = "Charles Martin"
 
 # Interaction Configuration
 [interaction]
