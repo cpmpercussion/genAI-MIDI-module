@@ -3,7 +3,7 @@
 # Metadata about this configuration
 title = "X-TOUCH in Volca FM out"
 owner = "Charles Martin"
-description = ""
+description = "Uses x-touch over it's own USB connector and Volca FM over the Studio 1824c"
 
 # Basic config
 log = true
