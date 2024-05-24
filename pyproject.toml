@@ -16,7 +16,7 @@ tensorflow = [
   ]
 tensorflow-probability = "0.23.0"
 python-osc = "^1.8.3"
-keras-mdn-layer = "^0.3.0"
+keras-mdn-layer = "^0.4.0"
 pyserial = "^3.5"
 websockets = "^12.0"
 mido = "^1.3.2"
