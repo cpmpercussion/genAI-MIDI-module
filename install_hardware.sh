@@ -26,6 +26,7 @@ sudo echo -e "\ndtoverlay=dwc2" >> /boot/firmware/config.txt
 
 ## TODO
 # add to end of  /boot/firmware/cmdline.txt
+sudo sed -i 's/$/ modules-load=dwc2,g_ether/' /boot/firmware/cmdline.txt
 # modules-load=dwc2,g_ether
 
 ## Enable UART0
