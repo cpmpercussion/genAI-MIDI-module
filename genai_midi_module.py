@@ -232,7 +232,8 @@ def send_control_change(channel, control, value):
 def send_midi_message(msg):
     """Send a MIDI message across all required outputs"""
     # TODO: this is where we can have laggy performance, careful.
-    midi_out_port.send(msg)
+    if midi_out_port is not None:
+        midi_out_port.send(msg)
     serial_send_midi(msg)
     websocket_send_midi(msg)
 
