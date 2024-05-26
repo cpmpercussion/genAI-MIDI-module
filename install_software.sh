@@ -25,7 +25,7 @@ pip install pybind11==2.9.2 --break-system-packages && \
 pip install packaging --break-system-packages && \
 pip install protobuf==3.20.3 --break-system-packages && \
 pip install six wheel mock gdown --break-system-packages
-pip uninstall tensorflow
+pip uninstall tensorflow --break-system-packages
 TFVER=2.15.0.post1
 PYVER=311
 ARCH=`python -c 'import platform; print(platform.machine())'`
