@@ -49,5 +49,13 @@ You can stop the `genai_midi_module.py` program by typing Ctrl-C.
 
 - `start.sh` starts the main python file
 
+# Poetry Install
 
+This project also works with poetry for defining dependencies and setting up a virtualenv for you (yay).
+
+1. install poetry.
+2. if on Raspberry Pi, use [this workaround](https://github.com/python-poetry/poetry/issues/8623) to stop poetry failing: `export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring`
+3. run `poetry install`
+
+N.B.: working towards making this the default on all platforms.
 
