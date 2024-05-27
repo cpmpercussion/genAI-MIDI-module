@@ -39,7 +39,7 @@ input = [ # nanoKONTROL Studio knobs
   ["control_change", 1, 19], # nanoKONTROL Studio knob controller 7
   ["control_change", 1, 20], # nanoKONTROL Studio knob controller 8
 ]
-output = [ # Volca FM
+output = [ # Collection of Useful Mappings
   ["note_on", 1], # note
   ["control_change", 1, 1], # 
   ["control_change", 1, 2], # 
