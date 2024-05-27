@@ -29,25 +29,25 @@ timescale = 1
 [midi]
 in_device = "U2MIDI Pro"
 out_device = "U2MIDI Pro"
-input = [ # nanoKONTROL Studio knobs
-  ["control_change", 1, 13], # nanoKONTROL Studio knob controller 1
-  ["control_change", 1, 14], # nanoKONTROL Studio knob controller 2
-  ["control_change", 1, 15], # nanoKONTROL Studio knob controller 3
-  ["control_change", 1, 16], # nanoKONTROL Studio knob controller 4
-  ["control_change", 1, 17], # nanoKONTROL Studio knob controller 5
-  ["control_change", 1, 18], # nanoKONTROL Studio knob controller 6
-  ["control_change", 1, 19], # nanoKONTROL Studio knob controller 7
-  ["control_change", 1, 20], # nanoKONTROL Studio knob controller 8
-]
-output = [ # Collection of Useful Mappings
+input = [ # Alec input from Ableton
   ["note_on", 1], # note
-  ["control_change", 1, 1], # 
-  ["control_change", 1, 2], # 
-  ["control_change", 1, 3], # 
-  ["note_on", 2], # note
-  ["control_change", 1, 4], # 
-  ["control_change", 1, 5], # 
-  ["control_change", 1, 6], # 
+  ["note_on", 2], #  
+  ["note_on", 3], # 
+  ["note_on", 4], # 
+  ["control_change", 1, 1], 
+  ["control_change", 1, 2], 
+  ["control_change", 1, 3], 
+  ["control_change", 1, 4], 
+]
+output = [ # Alec output back to ableton
+  ["note_on", 1], # note
+  ["note_on", 2], #  
+  ["note_on", 3], # 
+  ["note_on", 4], # 
+  ["control_change", 1, 1], 
+  ["control_change", 1, 2], 
+  ["control_change", 1, 3], 
+  ["control_change", 1, 4],
 ]
 
 [websocket]
