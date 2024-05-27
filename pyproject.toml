@@ -2,21 +2,23 @@
 name = "genai-midi-module"
 version = "0.1.0"
 description = "A generative AI MIDI module for creating intelligent musical instruments with Raspberry Pi"
-authors = ["Charles Martin <cpm@charlesmartin.com.au>"]
+authors = ["Charles Martin <cpm@charlesmartin.au>"]
 license = "MIT"
 readme = "README.md"
-packages = [{include = "genai_midi_module"}]
+package-mode = false
+# packages = [{include = "genai_midi_module"}]
 
 [tool.poetry.dependencies]
 python = ">=3.11,<3.12"
-tensorflow-macos = {markers="sys_platform == 'darwin' and platform_machine == 'aarch64'", version = "2.15.0"}
+tensorflow-macos = {markers="sys_platform == 'darwin' and platform_machine == 'aarch64'", version = "~2.15.0"}
 tensorflow = [
-  {markers="sys_platform == 'darwin' and platform_machine == 'x86_64'", version = "2.15.0"},
-  {markers="sys_platform == 'linux' and platform_machine == 'x86_64'", version = "2.15.0"},
-  {platform = "win32", version = "2.15.0"},
+  {markers="sys_platform == 'darwin' and platform_machine == 'x86_64'", version = "~2.15.0"},
+  {markers="sys_platform == 'linux' and platform_machine == 'x86_64'", version = "~2.15.0"},
+  {platform = "win32", version = "~2.15.0"},
   {markers="sys_platform == 'linux' and platform_machine == 'aarch64'", url="https://github.com/PINTO0309/Tensorflow-bin/releases/download/v2.15.0.post1/tensorflow-2.15.0.post1-cp311-none-linux_aarch64.whl"}, # this is specifically for Raspberry Pis.
   ]
 tensorflow-probability = "0.23.0"
+h5py = "~3.10.0"
 python-osc = "^1.8.3"
 keras-mdn-layer = "~0.4.1"
 pyserial = "^3.5"
