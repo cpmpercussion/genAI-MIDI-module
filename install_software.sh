@@ -39,7 +39,7 @@ https://github.com/PINTO0309/Tensorflow-bin/releases/download/v${TFVER}/tensorfl
 # Setup other python packages.
 pip install -U tensorflow-probability==0.23.0 --break-system-packages && \
 pip install -U python-osc --break-system-packages && \
-pip install -U keras-mdn-layer==0.4.0 --break-system-packages && \
+pip install -U keras-mdn-layer==0.4.1 --break-system-packages && \
 pip install -U pyserial --break-system-packages && \
 pip install -U websockets --break-system-packages && \
 pip install -U mido --break-system-packages && \
