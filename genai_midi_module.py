@@ -44,7 +44,7 @@ try:
     click.secho(f"MIDI: in port is: {midi_in_port.name}", fg='green')
 except: 
     midi_in_port = None
-    click.secho("Could not open MIDI input.", fg='red')
+    click.secho(f"Could not open MIDI input: {config["midi"]["in_device"]}", fg='red')
     click.secho(f"MIDI Input: {mido.get_input_names()}", fg = 'blue')
 try:
     desired_output_port = match_midi_port_to_list(config["midi"]["out_device"], mido.get_output_names())
@@ -52,7 +52,7 @@ try:
     click.secho(f"MIDI: out port is: {midi_out_port.name}", fg='green')
 except:
     midi_out_port = None
-    click.secho("Could not open MIDI output.", fg='red')
+    click.secho(f"Could not open MIDI output: {config["midi"]["out_device"]}", fg='red')
     click.secho(f"MIDI Output: {mido.get_output_names()}", fg = 'blue')
 
 # Serial port opening
