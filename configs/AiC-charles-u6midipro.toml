@@ -41,13 +41,13 @@ input = [ # nanoKONTROL Studio knobs
 ]
 output = [ # Collection of Useful Mappings
   ["note_on", 1], # note
-  ["control_change", 1, 1], # 
-  ["control_change", 1, 2], # 
-  ["control_change", 1, 3], # 
+  ["control_change", 11, 13], # 
   ["note_on", 2], # note
-  ["control_change", 1, 4], # 
-  ["control_change", 1, 5], # 
-  ["control_change", 1, 6], # 
+  ["control_change", 11, 14], # 
+  ["note_on", 3], # note
+  ["control_change", 11, 15], # 
+  ["note_on", 4], # note
+  ["control_change", 11, 16], # 
 ]
 
 [websocket]
